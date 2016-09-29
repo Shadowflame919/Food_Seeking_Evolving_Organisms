@@ -1,13 +1,13 @@
-# Food_Seeking_Evolving_Organisms
+# Organisms with neural networks evolve via natural selection to seek food.
 
 Organisms start with a random neural network brain which results in random movements.
-They lose energy that currently depends on 4 factors:
-  Time
+They lose energy over time that currently depends on 4 factors:
+  Just being alive
   Current speed travelling
   Current turning speed
   Number of hidden neurons in brain (inputs and outputs remain the same)
   
-Organisms use their brain structure to navigate throughout its 'environment' to collect food and has 3 eyes to sense nearby food.
+Organisms use their brain structure to navigate throughout its 'environment' to collect food, the inputs for their neural network brains are the eyes it has which detect food with a signal dependant on how far away it is (as far away objects appear small in real life).
 Collecting food gives the organism energy which it can use to live and reproduce.
 If an organism reaches 0 energy it is removed from the simulation.
   
