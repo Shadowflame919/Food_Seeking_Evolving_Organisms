@@ -39,7 +39,7 @@ class Neural_Network:
                     #print("Layer " + str(layer) + " is not output, bias was added")
                     for neuron in self.layers[layer]:
                         for lengthOfNextLayer in range(structure[layer+1]):
-                            neuron.append((random.random()-0.5)*4)
+                            neuron.append((random.random()-0.5)*2)
 
     def giveOutput(self, brainInput):
         layerOutput = brainInput    # layer outputs for input layer
@@ -81,11 +81,15 @@ class Neural_Network:
             for neuron in layer:
                 childLayers[-1].append([])
                 for weight in neuron:
-                    newWeight = weight + (random.random()-0.5) * mutateRate
-                    if newWeight > 2:
-                        newWeight = 2
-                    if newWeight < -2:
-                        newWeight = -2
+                    newWeight = 0
+                    if random.random() > 0.1:
+                        newWeight = weight + (random.random()-0.5) * mutateRate
+                        if newWeight > 2:
+                            newWeight = 2
+                        elif newWeight < -2:
+                            newWeight = -2
+                    else:
+                        newWeight = (random.random()-0.5) * 4
                     childLayers[-1][-1].append(newWeight)
 
         # Add/Remove extra neurons to hidden layers

@@ -47,9 +47,9 @@ def blankGrid():
 
 class Main:
     def __init__(self):
-        self.STARTING_POPULATION = 20
-        self.STARTING_FOOD = 100
-        self.FOOD_REGEN = 0.4
+        self.STARTING_POPULATION = 40
+        self.STARTING_FOOD = 200
+        self.FOOD_REGEN = 0.2
         
         self.statsFont = pygame.font.Font(None, 36)
 
@@ -59,8 +59,13 @@ class Main:
             ["Fast Mode", False],
             ["Org Stats", False],
             ["Org Sight", False],
-            ["Org Brain", False]
+            ["Org Brain", False],
+            ["Pause Sim", False]
         ]
+
+        #
+        #   Make array called objectList / objectGrid to store food/killers and make it all the same except killers have negative energy
+        #
 
         self.foodSpawn = 0
                 
@@ -70,31 +75,12 @@ class Main:
         self.orgList = []
         self.foodList = []
 
-        # Create Random Organisms
-        for orgNum in range(self.STARTING_POPULATION):
-            randPos = [random.random()*size[0], random.random()*size[1]]
-            row = math.floor(randPos[0]/gridSize)
-            col = math.floor(randPos[1]/gridSize)
-            self.orgList.append(Organism(randPos))
-            self.orgGrid[col][row].append(orgNum)
-
-        # Create Random Food
-        for foodNum in range(self.STARTING_FOOD):
-            randPos = [random.random()*size[0], random.random()*size[1]]
-            row = math.floor(randPos[0]/gridSize)
-            col = math.floor(randPos[1]/gridSize)
-            self.foodList.append(Food(randPos))
-            self.foodGrid[col][row].append(foodNum)
-            
-
         self.selectedOrganism = None
 
         self.pressingOne = False
         self.pressingTwo = False
         
     def mainLoop(self):
-        self.frameNo += 1
-        
         for event in pygame.event.get():    # User did something
             if event.type == pygame.QUIT:   # If user clicked close
                 print("User tried to quit")
@@ -124,15 +110,17 @@ class Main:
                 if event.key == pygame.K_2:
                     self.pressingTwo = False
 
-        if len(main.orgList) > 0:
+        if self.selectedOrganism != None:
             if self.pressingOne:
-                main.orgList[0].dir -= 3*deltaTime
+                self.selectedOrganism.dir -= 2*deltaTime
             if self.pressingTwo:
-                main.orgList[0].dir += 3*deltaTime
+                self.selectedOrganism.dir += 2*deltaTime
                 
                 
         # MAIN UPDATE CODE
-        self.update()
+        if not self.settings[4][1]:
+            self.frameNo += 1
+            self.update()
 
         self.render()
 
@@ -145,12 +133,11 @@ class Main:
         # Surrounding Border
         pygame.draw.rect(screen, colours.RED, screenRect, 3)
 
+        for food in self.foodList:  # Render each food piece
+            food.render()
         
-        for organism in self.orgList:    # Render each organism
+        for organism in self.orgList:   # Render each organism
             organism.render()
-
-        for food in self.foodList:
-            food.render()   # Render each food piece
             
 
         if main.settings[3][1] and self.selectedOrganism != None:
@@ -175,7 +162,7 @@ class Main:
             pygame.draw.rect(screen, colours.GREY(150), settingRect)
             circlePos = funcs.arrRound([settingRect.x + settingRect.h/2, settingRect.centery])
             if self.settings[i][1]:
-                pygame.draw.circle(screen, colours.DARK_GREEN, circlePos, int(settingRect.h*0.4))
+                pygame.draw.circle(screen, colours.GREEN(127), circlePos, int(settingRect.h*0.4))
             else:
                 pygame.draw.circle(screen, colours.RED, circlePos, int(settingRect.h*0.4))
                 
@@ -186,29 +173,29 @@ class Main:
 
     def update(self):
         ## First update all the grid positions to be used
-        self.orgGrid = blankGrid()
-        for orgNum in range(len(self.orgList)):
-            gridPos = self.orgList[orgNum].gridPos
-            self.orgGrid[gridPos[1]][gridPos[0]].append(orgNum)
+        self.resetOrgGrid()
 
         ## Update each organism using new grid positions
-        for organism in self.orgList:
-            organism.update()
+        for orgNum in range(len(self.orgList)):
+            self.orgList[orgNum].update(orgNum)
 
         ## After updating, remove dead organisms
         for orgNum in range(len(self.orgList)-1, -1, -1):
             if self.orgList[orgNum].energy <= 0:
                 self.orgList.pop(orgNum)
+                self.resetOrgGrid()
 
         ## Add a piece of food if any are missing
+        self.foodSpawn -= deltaTime
         if len(self.foodList) < self.STARTING_FOOD and self.foodSpawn <= 0:
             self.foodSpawn = self.FOOD_REGEN
-            randPos = [random.random()*size[0], random.random()*size[1]]
-            row = math.floor(randPos[0]/gridSize)
-            col = math.floor(randPos[1]/gridSize)
-            self.foodList.append(Food(randPos))
-            self.foodGrid[col][row].append(len(self.foodList)-1)
-        self.foodSpawn -= deltaTime
+            self.foodList.append(Food())
+
+    def resetOrgGrid(self):
+        self.orgGrid = blankGrid()
+        for orgNum in range(len(self.orgList)):
+            gridPos = self.orgList[orgNum].gridPos
+            self.orgGrid[gridPos[1]][gridPos[0]].append(orgNum)
                 
     def drawGrid(self):
         for col in range(len(self.orgGrid)):
@@ -217,55 +204,74 @@ class Main:
             pygame.draw.line(screen, colours.GREY(200), [gridSize*row, 0], [gridSize*row, size[1]], 4)
 
     def drawBrain(self):
-        drawRect = [20,630,300,250]
+        drawRect = [20,580,400,300]
         pygame.draw.rect(screen, colours.GREY(200), drawRect)
 
-        bugBrain = self.selectedOrganism.brain
+        orgBrain = self.selectedOrganism.brain
         brainLayout = []
 
-        for layerNum in range(len(bugBrain.layers)):
-            layer = bugBrain.layers[layerNum]
+        for layerNum in range(len(orgBrain.layers)):
+            layer = orgBrain.layers[layerNum]
             layerLength = len(layer)
-            if layerNum != len(bugBrain.layers)-1:
+            if layerNum != len(orgBrain.layers)-1:
                 layerLength -= 1
 
-            neuronX = int(drawRect[0] + (layerNum+0.5)*(drawRect[2]/len(bugBrain.layers)))
+            neuronX = int(drawRect[0] + (layerNum+0.5)*(drawRect[2]/len(orgBrain.layers)))
             brainLayout.append([])
             
             for neuronNum in range(layerLength):
-                neuronY = int(drawRect[1] + (neuronNum+0.5)*(drawRect[3]/layerLength))
+                neuronY = int(drawRect[1] + drawRect[3]*((neuronNum+0.5)*(0.9/layerLength)+0.05) )
                 brainLayout[-1].append([neuronX, neuronY])
 
         for layerNum in range(len(brainLayout)-1):
             for neuronNum in range(len(brainLayout[layerNum])):
-                for weight in range(len(bugBrain.layers[layerNum][neuronNum])):   # draw connecting lines
+                for weight in range(len(orgBrain.layers[layerNum][neuronNum])):   # draw connecting lines
                     lineColour = colours.BLUE
-                    if bugBrain.layers[layerNum][neuronNum][weight] < 0:
+                    if orgBrain.layers[layerNum][neuronNum][weight] < 0:
                         lineColour = colours.RED
-                    lineWidth = 1 + int(4 * abs(bugBrain.layers[layerNum][neuronNum][weight]))
+                    lineWidth = 1 + int(4 * abs(orgBrain.layers[layerNum][neuronNum][weight]))
                     pygame.draw.line(screen, lineColour, brainLayout[layerNum][neuronNum], brainLayout[layerNum+1][weight], lineWidth)
 
 
         for layerNum in range(len(brainLayout)):
             for neuronNum in range(len(brainLayout[layerNum])):
-                neuronColour = colours.DARK_GREEN
-                neuronSize = 25
+                neuronColour = colours.GREEN(127)
+                neuronSize = 0
                 if layerNum > 0:
                     neuronColour = colours.BLUE
-                    if bugBrain.layers[layerNum-1][-1][neuronNum] < 0:
+                    if orgBrain.layers[layerNum-1][-1][neuronNum] < 0:
                         neuronColour = colours.RED
-                    neuronSize = 10 + int(4 * abs(bugBrain.layers[layerNum-1][-1][neuronNum]))
+                    neuronSize = 10 + int(4 * abs(orgBrain.layers[layerNum-1][-1][neuronNum]))
+                else:
+                    neuronSize = int(drawRect[3] / (len(brainLayout[layerNum])*2.3))
+                    if neuronSize > 25:
+                        neuronSize = 25
                 pygame.draw.circle(screen, neuronColour, brainLayout[layerNum][neuronNum], neuronSize)
                 pygame.draw.circle(screen, colours.BLACK, brainLayout[layerNum][neuronNum], neuronSize, 2)
 
 
 class Organism:
-    def __init__(self, pos, parent=None):
-        self.pos = pos
-        self.gridPos = [math.floor(self.pos[0]/gridSize), math.floor(self.pos[1]/gridSize)]
-        self.dir = 0
+    def __init__(self, parent=None):
+        if parent == None:
+            self.brain = neural_net.Neural_Network([12,2,2])
+            self.pos = [random.random()*size[0], random.random()*size[1]]
+            self.gridPos = [math.floor(self.pos[0]/gridSize), math.floor(self.pos[1]/gridSize)]
+            self.colour = colours.orgColour()
+        else:
+            self.brain = parent.brain.childBrain()
+            self.pos = parent.pos
+            self.gridPos = parent.gridPos
+            self.colour = colours.orgColour(parent.colour)
+
+        main.orgGrid[self.gridPos[1]][self.gridPos[0]].append(len(main.orgList))    # Add to org grid
+            
+        self.neuronCount = 0
+        for layerNum in range(1, len(self.brain.layers)-1):
+            self.neuronCount += len(self.brain.layers[layerNum])-1
         
-        self.size = 10     # radius of organism
+        self.dir = 0
+            
+        self.size = 8     # radius of organism
         self.speed = 50
 
         self.brainUsage = 0.2   # Timer between uses of the brain
@@ -274,33 +280,25 @@ class Organism:
         self.turnAmount = 0
         self.moveAmount = 0
 
-        if parent == None:
-            self.brain = neural_net.Neural_Network([3,2,2])
-        else:
-            self.brain = parent.brain.childBrain()
-
-        self.neuronCount = 0
-        for layerNum in range(1, len(self.brain.layers)-1):
-            self.neuronCount += len(self.brain.layers[layerNum])-1
-
         # Life Stats
         self.energy = 50   # out of 100
 
         # Sight Variables
-        self.VIEW_RANGE = 200 # How many pixels far organism can see
-        self.VIEW_ANGLE = 1  # In radians (2*pi = 360 degrees)
-        self.VIEW_LINES = 3  # Number of lines seperating segments for organisms sight (one less segment than lines)
-        self.viewPointList = [] # End points of each sight lines counterclockwise to clockwise
+        self.VIEW_RANGE = 150 # How many pixels far organism can see
+        self.VIEW_ANGLE = 2  # In radians (2*pi = 360 degrees)
+        self.VIEW_LINES = 4  # Number of lines seperating segments for organisms sight (one less segment than lines)
 
     def render(self):
-        for endPoint in self.viewPointList:
-            pygame.draw.line(screen, colours.GREY(200), funcs.arrRound(self.pos), funcs.arrRound(endPoint), int(self.size/3))
+        if main.settings[2][1]:
+            for lineNum in range(self.VIEW_LINES+1):
+                lineAngle = self.dir + lineNum * (self.VIEW_ANGLE/self.VIEW_LINES) - self.VIEW_ANGLE/2
+                linePoint = funcs.extendLine(self.pos, lineAngle, self.VIEW_RANGE)
+                pygame.draw.line(screen, colours.GREY(200), funcs.arrRound(self.pos), funcs.arrRound(linePoint), int(self.size/3))
         
-        lineEnd = funcs.extendLine(self.pos, self.dir, self.size*1.5)
-        pygame.draw.line(screen, colours.BLACK, funcs.arrRound(self.pos), funcs.arrRound(lineEnd), int(self.size/3))
-        pygame.draw.circle(screen, colours.BLACK, funcs.arrRound(lineEnd), int(self.size/4))
+        frontPoint = funcs.extendLine(self.pos, self.dir, self.size)
+        pygame.draw.circle(screen, colours.BLACK, funcs.arrRound(frontPoint), int(self.size*0.5))
         
-        pygame.draw.circle(screen, colours.ORANGE, funcs.arrRound(self.pos), int(self.size))
+        pygame.draw.circle(screen, self.colour, funcs.arrRound(self.pos), int(self.size))
 
         if main.settings[1][1]:
             self.renderStats()
@@ -320,7 +318,7 @@ class Organism:
         speedBar = speedRect.copy()
         speedBar.height = speedBar.height * self.moveAmount
         speedBar.bottom = speedRect.bottom
-        pygame.draw.rect(screen, colours.DARK_GREEN, speedBar)
+        pygame.draw.rect(screen, colours.GREEN(127), speedBar)
         pygame.draw.rect(screen, colours.BLACK, speedRect, 2)
 
         turnRect = statRect.copy()
@@ -333,22 +331,37 @@ class Organism:
         pygame.draw.line(screen, colours.BLACK, turnRect.midleft, turnRect.midright, 2)
         
 
-    def update(self):
+    def update(self, orgNum):
         if self.brainClock <= 0:
-            brainInput = [0] * self.VIEW_LINES
+            brainInput = [0] * (self.VIEW_LINES * 3)
             
-            seenFood = self.nearbyFood(self.size + 5 + self.VIEW_RANGE)
-            for foodArr in seenFood:
+            nearbyFood = self.nearbyFood(self.VIEW_RANGE)
+            for foodArr in nearbyFood:
                 foodObject = main.foodList[foodArr[0]]
                 relativePos = [foodObject.pos[0]+foodArr[1], foodObject.pos[1]+foodArr[2]]
                 foodDist = self.distanceFrom(relativePos)
                 if foodDist < self.VIEW_RANGE:
                     eyeNum = self.eyeCanSee(relativePos)
                     if eyeNum != None:
-                        brainInput[eyeNum] += foodDist / self.VIEW_RANGE
-                        
+                        sightStrength = 1 - (foodDist / self.VIEW_RANGE)     # Closer objects have stronger signals
+                        brainInput[eyeNum*2+0] += sightStrength * (foodObject.colour[0]/255)
+                        brainInput[eyeNum*2+1] += sightStrength * (foodObject.colour[1]/255)
+                        brainInput[eyeNum*2+2] += sightStrength * (foodObject.colour[2]/255)
 
-            #print(brainInput)
+            nearbyOrgs = self.nearbyOrgs(self.VIEW_RANGE, orgNum)
+            for orgArr in nearbyOrgs:
+                orgObject = main.orgList[orgArr[0]]
+                relativePos = [orgObject.pos[0]+orgArr[1], orgObject.pos[1]+orgArr[2]]
+                orgDist = self.distanceFrom(relativePos)
+                if orgDist < self.VIEW_RANGE:
+                    eyeNum = self.eyeCanSee(relativePos)
+                    if eyeNum != None:
+                        sightStrength = 1 - (orgDist / self.VIEW_RANGE)     # Closer objects have stronger signals
+                        brainInput[eyeNum*2+0] += sightStrength * (orgObject.colour[0]/255)
+                        brainInput[eyeNum*2+1] += sightStrength * (orgObject.colour[1]/255)
+                        brainInput[eyeNum*2+2] += sightStrength * (orgObject.colour[2]/255)      
+
+            
             brainOutput = self.brain.giveOutput(brainInput)
 
             self.brainClock = self.brainUsage
@@ -367,29 +380,22 @@ class Organism:
             relativePos = [foodObject.pos[0]+foodArr[1], foodObject.pos[1]+foodArr[2]]
             if self.distanceFrom(relativePos) < self.size + foodObject.size:   # Organism touching food
                 self.energy += foodObject.energy
-                if self.energy >= 100:  # Reproduce
-                    self.energy = 50
-                    main.orgList.append(Organism(self.pos, self))
-                    main.orgGrid[self.gridPos[1]][self.gridPos[0]].append(len(main.orgList))
                 main.foodList.pop(foodArr[0])
-                # Reset food grid each time food is destroyed
+                # Reset food grid if food piece has been eaten
                 main.foodGrid = blankGrid()
                 for foodNum in range(len(main.foodList)):
                     gridPos = main.foodList[foodNum].gridPos
                     main.foodGrid[gridPos[1]][gridPos[0]].append(foodNum)        
+
+                # Reproduce if has enough energy
+                if self.energy >= 100:
+                    self.energy = 50
+                    main.orgList.append(Organism(self))
+
                 break
 
-        # Energy loss rate depends on: 5 parts speed, 3 parts turning, 2 parts living
-        #   Also parts equal to brains hidden layer neuron count
-        self.energy -= deltaTime * (0.2 + 0.5*self.moveAmount + 0.3*abs(self.turnAmount) + self.neuronCount*0.1)
-
-        # Rendering view lines
-        self.viewPointList = []
-        if main.settings[2][1]:
-            for lineNum in range(self.VIEW_LINES+1):
-                lineAngle = self.dir + lineNum * (self.VIEW_ANGLE/self.VIEW_LINES) - self.VIEW_ANGLE/2
-                linePoint = funcs.extendLine(self.pos, lineAngle, self.VIEW_RANGE)
-                self.viewPointList.append(linePoint)
+        # Energy loss rate depends on: 5 parts speed, 3 parts turning, 2 parts living, hidden neuron counts part
+        self.energy -= deltaTime * (0.2 + self.moveAmount + 0.3*abs(self.turnAmount) + self.neuronCount*0.1)
 
     def turnSelf(self):
         self.dir += self.turnAmount * deltaTime
@@ -449,6 +455,31 @@ class Organism:
                     foodPieces.append([foodNum, realX, realY])
         return foodPieces
 
+    def nearbyOrgs(self, radius, selfNum):
+        squareRadius = math.ceil(radius / gridSize) # The radius of squares around organism
+        orgArr = []    # Contains each food number within testing radius of organism, also contains whether object is across map on x and y
+        for row in range(-squareRadius, squareRadius+1):
+            for col in range(-squareRadius, squareRadius+1):
+                gridPos = [row + self.gridPos[0], col + self.gridPos[1]]
+                realX = 0
+                realY = 0
+                if gridPos[0] < 0:
+                    gridPos[0] += len(main.orgGrid[0])
+                    realX = -size[0]
+                elif gridPos[0] >= len(main.orgGrid[0]):
+                    gridPos[0] -= len(main.orgGrid[0])
+                    realX = size[0]
+                if gridPos[1] < 0:
+                    gridPos[1] += len(main.orgGrid)
+                    realY = -size[1]
+                elif gridPos[1] >= len(main.orgGrid):
+                    gridPos[1] -= len(main.orgGrid)
+                    realY = size[1]
+                for orgNum in main.orgGrid[gridPos[1]][gridPos[0]]:
+                    if orgNum != selfNum:
+                        orgArr.append([orgNum, realX, realY])
+        return orgArr
+
     def eyeCanSee(self, point): # Returns the eye that a point is inside
         foodAngle = self.bearingTo(point)
         dirOffset = foodAngle - self.dir
@@ -466,20 +497,21 @@ class Organism:
         return None
         
 
-class Food:
-    def __init__(self, pos):
-        self.pos = pos
+class Food: # Food can be plants (green) or dead organisms (red) and maybe add water (blue)
+    def __init__(self, foodType="plant"):   # plant or meat
+        self.pos = [random.random()*size[0], random.random()*size[1]]
         self.gridPos = [math.floor(self.pos[0]/gridSize), math.floor(self.pos[1]/gridSize)]
+        
+        main.foodGrid[self.gridPos[1]][self.gridPos[0]].append(len(main.foodList))    # Add to food grid
 
-        self.size = 5
+        self.size = 4
 
-        self.energy = 10
-
-        self.colour = colours.BLUE
+        self.type = foodType
+        self.energy = random.randrange(5,15)
+        self.colour = colours.GREEN(self.energy*12)
 
     def render(self):
         pygame.draw.circle(screen, self.colour, funcs.arrRound(self.pos), int(self.size))
-        self.colour = colours.BLUE
 
 
 screenRect = pygame.Rect(0,0,size[0],size[1])
@@ -495,6 +527,16 @@ FPS = 60
 deltaTime = 1 / FPS
 done = False
 main = Main()
+
+## Initiate game by adding organisms/food
+# Create Random Organisms
+for orgNum in range(main.STARTING_POPULATION):
+    main.orgList.append(Organism())
+
+# Create Random Food
+for foodNum in range(main.STARTING_FOOD):
+    main.foodList.append(Food())
+
  
 # -------- Main Program Loop -----------
 while not done:
